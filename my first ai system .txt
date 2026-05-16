@@ -1,0 +1,92 @@
+import json
+import os
+from difflib import get_close_matches
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+
+FILENAME = "sk.json"
+
+def save():
+    with open(FILENAME, "w") as f:
+        json.dump(sk, f, indent=4)
+
+if os.path.exists(FILENAME):
+    with open(FILENAME, "r") as f:
+        sk = json.load(f)
+else:
+    sk = {}
+
+def chatbot(text):
+    text = text.lower().strip()
+
+    if text in sk:
+        return sk[text]
+
+    matches = get_close_matches(text, sk.keys(), n=1, cutoff=0.6)
+    if matches:
+        return sk[matches[0]]
+
+    reply = input("🤖 Teach me: ")
+    sk[text] = reply
+    save()
+    return "✅ Learned!"
+
+def train_spam_model():
+    print("📂 Upload spam dataset (CSV with text,label)")
+
+    from google.colab import files
+    uploaded = files.upload()
+
+    file_name = list(uploaded.keys())[0]
+    data = pd.read_csv(file_name)
+
+    X = data["text"]
+    y = data["label"]
+
+    vectorizer = TfidfVectorizer()
+    X_vec = vectorizer.fit_transform(X)
+
+    model = MultinomialNB()
+    model.fit(X_vec, y)
+
+    print("✅ Spam Model Ready!")
+
+    return model, vectorizer
+
+print("🔥 AI PROJECT STARTED")
+
+spam_model = None
+spam_vectorizer = None
+
+while True:
+    print("\nChoose Option:")
+    print("1 - Chatbot")
+    print("2 - Spam Detection")
+    print("3 - Train Spam Model")
+    print("0 - Exit")
+
+    choice = input("Enter choice: ")
+
+    if choice == "1":
+        user = input("You: ")
+        print("AI:", chatbot(user))
+
+    elif choice == "2":
+        if spam_model is None:
+            print("⚠️ Train model first!")
+        else:
+            text = input("Enter message: ")
+            vec = spam_vectorizer.transform([text])
+            result = spam_model.predict(vec)[0]
+            print("📩 Result:", result)
+
+    elif choice == "3":
+        spam_model, spam_vectorizer = train_spam_model()
+
+    elif choice == "0":
+        print("👋 Goodbye!")
+        break
+
+    else:
+        print("❌ Invalid choice")
